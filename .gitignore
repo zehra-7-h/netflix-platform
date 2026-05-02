@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Sanal ortam
+venv/
+.venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Üretilen varlıklar (uygulama başlangıcında yeniden oluşturulur)
+ui/assets/arrow_up.png
+ui/assets/arrow_down.png
+
+# Hassas bilgiler
+config/local_settings.py
+*.env
+
+# Log dosyaları
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
