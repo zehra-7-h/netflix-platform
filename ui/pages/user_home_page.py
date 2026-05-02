@@ -2,9 +2,10 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QTableWidget, QTableWidgetItem,
                              QHeaderView, QLineEdit, QComboBox, QSpinBox,
                              QFrame, QStackedWidget, QDoubleSpinBox,
-                             QGroupBox, QScrollArea, QSizePolicy)
-from PyQt6.QtCore import pyqtSignal, Qt, QTimer
-from PyQt6.QtGui import QFont
+                             QGroupBox, QScrollArea, QSizePolicy,
+                             QAbstractSpinBox)
+from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QPointF
+from PyQt6.QtGui import QFont, QPainter, QColor, QPolygonF
 
 from ui.components.sidebar import Sidebar
 from ui.pages.content_detail_page import ContentDetailPage
@@ -21,6 +22,43 @@ from utils.session import session
 # ─────────────────────────────────────────────────────────────────────────────
 # Alt sayfa: Kesfet / Browse
 # ─────────────────────────────────────────────────────────────────────────────
+
+class _VisibleSpinArrowsMixin:
+    """Draws clear spinner arrows over the themed right-side button area."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#F7F7F7" if self.isEnabled() else "#777777"))
+
+        panel_width = 30
+        center_x = self.width() - panel_width / 2
+        arrow_size = 5.5
+        top_y = self.height() * 0.34
+        bottom_y = self.height() * 0.66
+
+        painter.drawPolygon(QPolygonF([
+            QPointF(center_x, top_y - arrow_size / 2),
+            QPointF(center_x - arrow_size, top_y + arrow_size / 2),
+            QPointF(center_x + arrow_size, top_y + arrow_size / 2),
+        ]))
+        painter.drawPolygon(QPolygonF([
+            QPointF(center_x, bottom_y + arrow_size / 2),
+            QPointF(center_x - arrow_size, bottom_y - arrow_size / 2),
+            QPointF(center_x + arrow_size, bottom_y - arrow_size / 2),
+        ]))
+
+
+class _VisibleArrowSpinBox(_VisibleSpinArrowsMixin, QSpinBox):
+    pass
+
+
+class _VisibleArrowDoubleSpinBox(_VisibleSpinArrowsMixin, QDoubleSpinBox):
+    pass
+
 
 class _BrowsePage(QWidget):
     detail_requested = pyqtSignal(int)   # program_id
@@ -122,17 +160,19 @@ class _BrowsePage(QWidget):
             self._cmb_tur.addItem(t.tur_adi, t.tur_id)
         row.addWidget(self._cmb_tur)
 
-        self._spn_yil = QSpinBox()
+        self._spn_yil = _VisibleArrowSpinBox()
         self._spn_yil.setFixedHeight(38)
         self._spn_yil.setFixedWidth(138)
+        self._spn_yil.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
         self._spn_yil.setRange(0, 2030)
         self._spn_yil.setSpecialValueText("Tum Yillar")
         self._spn_yil.setValue(0)
         row.addWidget(self._spn_yil)
 
-        self._spn_puan = QDoubleSpinBox()
+        self._spn_puan = _VisibleArrowDoubleSpinBox()
         self._spn_puan.setFixedHeight(38)
         self._spn_puan.setFixedWidth(132)
+        self._spn_puan.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
         self._spn_puan.setRange(0.0, 10.0)
         self._spn_puan.setSingleStep(0.5)
         self._spn_puan.setSpecialValueText("Min Puan")
@@ -225,19 +265,25 @@ class _BrowsePage(QWidget):
             self._table.setRowHeight(row, 44)
 
     def _load_recommendations(self):
-        # Öneri butonlarını temizle
-        for i in reversed(range(self._rec_layout.count())):
-            item = self._rec_layout.itemAt(i)
-            if item and item.widget():
-                item.widget().deleteLater()
+        # Oneri bandini tamamen temizle.
+        while self._rec_layout.count():
+            item = self._rec_layout.takeAt(0)
+            if item is None:
+                continue
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
 
         try:
-            recs = self._rec_svc.get_personalized(session.user_id, limit=8)
-        except Exception:
+            recs = self._rec_svc.get_registration_recommendations(
+                session.user_id
+            )
+        except Exception as exc:
+            print(f"[RECOMMENDATION ERROR] {exc}")
             recs = []
 
         if not recs:
-            lbl = QLabel("Henuz kisisel oneri yok — icerik izledikce oneriler guncellenir.")
+            lbl = QLabel("Favori turlerinize gore oneriler hazirlanamadi.")
             lbl.setStyleSheet("color: #666; font-size: 12px;")
             self._rec_layout.addWidget(lbl)
         else:

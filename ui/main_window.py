@@ -91,9 +91,9 @@ class MainWindow(QMainWindow):
             page.logout_requested.connect(self._on_logout)
             self._pages["user_home"] = page
             self.stack.addWidget(page)
-        else:
-            self._pages["user_home"].refresh()
-        self._fade_to(self._pages["user_home"])
+        page = self._pages["user_home"]
+        page.refresh()
+        self._fade_to(page)
 
     def _load_admin_panel(self):
         from ui.pages.admin.admin_dashboard import AdminDashboard
@@ -102,9 +102,9 @@ class MainWindow(QMainWindow):
             page.logout_requested.connect(self._on_logout)
             self._pages["admin"] = page
             self.stack.addWidget(page)
-        else:
-            self._pages["admin"].refresh()
-        self._fade_to(self._pages["admin"])
+        page = self._pages["admin"]
+        page.refresh()
+        self._fade_to(page)
 
     def _on_logout(self):
         from services.auth_service import AuthService

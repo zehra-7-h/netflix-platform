@@ -9,8 +9,12 @@ class RecommendationService:
     def __init__(self):
         self._repo = ProgramRepository()
 
-    def get_registration_recommendations(self,
-                                          kullanici_id: int) -> List[dict]:
+    def get_registration_recommendations(
+        self,
+        kullanici_id: int,
+        genre_count: int = 3,
+        per_genre: int = 2,
+    ) -> List[dict]:
         """
         Kayit sonrasi oneri: secilen 3 turden her birinden
         en yuksek puanli 2 icerik = toplam 6 oneri.
@@ -18,25 +22,76 @@ class RecommendationService:
         rows = db.fetchall(
             "SELECT kt.tur_id, t.tur_adi FROM KullaniciTur kt "
             "JOIN Tur t ON kt.tur_id = t.tur_id "
-            "WHERE kt.kullanici_id = ?", (kullanici_id,)
+            "WHERE kt.kullanici_id = ? "
+            "ORDER BY kt.tur_id", (kullanici_id,)
         )
+        selected_genres = rows[:genre_count]
+        seen_ids = set()
         result = []
-        for tur_id, tur_adi in rows:
+        target_total = genre_count * per_genre
+
+        for tur_id, tur_adi in selected_genres:
             programs = db.fetchall(
-                "SELECT TOP 2 p.program_id, p.ad, p.program_tipi, "
+                "SELECT p.program_id, p.ad, p.program_tipi, "
                 "p.ortalama_puan FROM Program p "
                 "JOIN ProgramTur pt ON p.program_id = pt.program_id "
-                "WHERE pt.tur_id = ? AND p.ortalama_puan > 0 "
-                "ORDER BY p.ortalama_puan DESC", (tur_id,)
+                "WHERE pt.tur_id = ? "
+                "ORDER BY "
+                "CASE WHEN p.ortalama_puan > 0 THEN 0 ELSE 1 END, "
+                "p.ortalama_puan DESC, p.toplam_izlenme DESC, p.ad ASC",
+                (tur_id,)
             )
+            added_for_genre = 0
             for pid, pad, ptipi, ppuan in programs:
+                if pid in seen_ids:
+                    continue
+
+                seen_ids.add(pid)
                 result.append({
                     "program_id": pid, "ad": pad,
                     "tip": ptipi, "puan": float(ppuan or 0),
                     "tur_adi": tur_adi,
                     "neden": f"{tur_adi} turunu sevdiginiz icin onerildi"
                 })
-        return result
+                added_for_genre += 1
+                if added_for_genre >= per_genre:
+                    break
+
+        # Bazi turlerde yeterli benzersiz icerik yoksa,
+        # secilen turlerin geri kalan en iyi icerikleriyle 6'ya tamamla.
+        if len(result) < target_total and selected_genres:
+            tur_ids = [tur_id for tur_id, _ in selected_genres]
+            placeholders = ",".join("?" * len(tur_ids))
+            fallback_rows = db.fetchall(
+                f"SELECT p.program_id, p.ad, p.program_tipi, "
+                f"p.ortalama_puan, p.toplam_izlenme FROM Program p "
+                f"JOIN ProgramTur pt ON p.program_id = pt.program_id "
+                f"WHERE pt.tur_id IN ({placeholders}) "
+                f"GROUP BY p.program_id, p.ad, p.program_tipi, "
+                f"p.ortalama_puan, p.toplam_izlenme "
+                f"ORDER BY "
+                f"CASE WHEN p.ortalama_puan > 0 THEN 0 ELSE 1 END, "
+                f"p.ortalama_puan DESC, p.toplam_izlenme DESC, p.ad ASC",
+                tuple(tur_ids)
+            )
+            for row in fallback_rows:
+                pid, pad, ptipi, ppuan = row[:4]
+                if pid in seen_ids:
+                    continue
+
+                seen_ids.add(pid)
+                result.append({
+                    "program_id": pid,
+                    "ad": pad,
+                    "tip": ptipi,
+                    "puan": float(ppuan or 0),
+                    "tur_adi": "",
+                    "neden": "Secilen turlerinize gore tamamlayici onerildi"
+                })
+                if len(result) >= target_total:
+                    break
+
+        return result[:target_total]
 
     def get_personalized(self, kullanici_id: int,
                           limit: int = 10) -> List[dict]:

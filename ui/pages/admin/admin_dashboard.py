@@ -14,6 +14,52 @@ from services.admin_service import AdminService
 from repositories.genre_repository import GenreRepository
 
 
+def _make_table_action_button(
+    text: str,
+    object_name: str,
+    width: int,
+    callback,
+) -> QPushButton:
+    btn = QPushButton(text)
+    btn.setObjectName(object_name)
+    btn.setFixedSize(width, 34)
+    btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    btn.clicked.connect(callback)
+    return btn
+
+
+class _TableActionCell(QWidget):
+    def __init__(self, *buttons: QPushButton):
+        super().__init__()
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
+
+        self._row = QWidget(self)
+        self._row.setStyleSheet("background: transparent;")
+        self._row_height = max((button.height() for button in buttons), default=34)
+        self._row.setFixedHeight(self._row_height)
+
+        layout = QHBoxLayout(self._row)
+        layout.setContentsMargins(8, 0, 8, 0)
+        layout.setSpacing(8)
+        layout.addStretch(1)
+        for button in buttons:
+            layout.addWidget(button, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addStretch(1)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        y = max(0, (self.height() - self._row_height) // 2)
+        self._row.setGeometry(0, y, self.width(), self._row_height)
+
+
+def _make_table_action_cell(*buttons: QPushButton) -> QWidget:
+    return _TableActionCell(*buttons)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Program ekleme / düzenleme dialog
 # ─────────────────────────────────────────────────────────────────────────────
@@ -214,9 +260,13 @@ class _ContentPage(QWidget):
         )
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        hh.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        hh.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
-        hh.resizeSection(6, 200)
+        hh.resizeSection(6, 220)
         hh.setStretchLastSection(False)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -254,28 +304,22 @@ class _ContentPage(QWidget):
                                       else Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
                 self._table.setItem(row, col, item)
 
-            # Butonlar
-            btn_w = QWidget()
-            btn_l = QHBoxLayout(btn_w)
-            btn_l.setContentsMargins(6, 8, 6, 8)
-            btn_l.setSpacing(6)
-            btn_l.addStretch()
-
-            btn_edit = QPushButton("Duzenle")
-            btn_edit.setObjectName("btn_secondary")
-            btn_edit.setFixedSize(82, 30)
-            btn_edit.clicked.connect(lambda _, p=prog: self._edit_program(p))
-            btn_l.addWidget(btn_edit)
-
-            btn_del = QPushButton("Sil")
-            btn_del.setObjectName("btn_danger")
-            btn_del.setFixedSize(55, 30)
-            btn_del.clicked.connect(lambda _, pid=prog.program_id: self._delete_program(pid))
-            btn_l.addWidget(btn_del)
-
-            btn_l.addStretch()
-            self._table.setCellWidget(row, 6, btn_w)
-            self._table.setRowHeight(row, 46)
+            btn_edit = _make_table_action_button(
+                "Duzenle",
+                "btn_table_secondary",
+                98,
+                lambda _, p=prog: self._edit_program(p),
+            )
+            btn_del = _make_table_action_button(
+                "Sil",
+                "btn_table_danger",
+                72,
+                lambda _, pid=prog.program_id: self._delete_program(pid),
+            )
+            self._table.setRowHeight(row, 52)
+            self._table.setCellWidget(row, 6, _make_table_action_cell(
+                btn_edit, btn_del
+            ))
 
     def _genres(self):
         return self._genre_rep.get_all()
@@ -360,7 +404,7 @@ class _GenrePage(QWidget):
         hh.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         hh.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        hh.resizeSection(2, 200)
+        hh.resizeSection(2, 220)
         hh.setStretchLastSection(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setAlternatingRowColors(True)
@@ -379,27 +423,22 @@ class _GenrePage(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, g.tur_id)
             self._table.setItem(row, 1, item)
 
-            btn_w = QWidget()
-            btn_l = QHBoxLayout(btn_w)
-            btn_l.setContentsMargins(6, 7, 6, 7)
-            btn_l.setSpacing(6)
-            btn_l.addStretch()
-
-            btn_edit = QPushButton("Duzenle")
-            btn_edit.setObjectName("btn_secondary")
-            btn_edit.setFixedSize(82, 30)
-            btn_edit.clicked.connect(lambda _, g=g: self._edit_genre(g))
-            btn_l.addWidget(btn_edit)
-
-            btn_del = QPushButton("Sil")
-            btn_del.setObjectName("btn_danger")
-            btn_del.setFixedSize(55, 30)
-            btn_del.clicked.connect(lambda _, tid=g.tur_id: self._delete_genre(tid))
-            btn_l.addWidget(btn_del)
-
-            btn_l.addStretch()
-            self._table.setCellWidget(row, 2, btn_w)
-            self._table.setRowHeight(row, 44)
+            btn_edit = _make_table_action_button(
+                "Duzenle",
+                "btn_table_secondary",
+                98,
+                lambda _, g=g: self._edit_genre(g),
+            )
+            btn_del = _make_table_action_button(
+                "Sil",
+                "btn_table_danger",
+                72,
+                lambda _, tid=g.tur_id: self._delete_genre(tid),
+            )
+            self._table.setRowHeight(row, 50)
+            self._table.setCellWidget(row, 2, _make_table_action_cell(
+                btn_edit, btn_del
+            ))
 
     def _add_genre(self):
         text, ok = QInputDialog.getText(self, "Yeni Tur", "Tur adi:")
@@ -467,8 +506,12 @@ class _UserPage(QWidget):
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         hh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        hh.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
-        hh.resizeSection(6, 240)
+        hh.resizeSection(6, 260)
         hh.setStretchLastSection(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setAlternatingRowColors(True)
@@ -511,34 +554,27 @@ class _UserPage(QWidget):
                     )
                 self._table.setItem(row, col, item)
 
-            btn_w = QWidget()
-            btn_l = QHBoxLayout(btn_w)
-            btn_l.setContentsMargins(6, 8, 6, 8)
-            btn_l.setSpacing(6)
-            btn_l.addStretch()
-
             lbl_toggle = "Pasif Yap" if user.aktif else "Aktif Yap"
-            obj_name = "btn_danger" if user.aktif else "btn_success"
-            btn_toggle = QPushButton(lbl_toggle)
-            btn_toggle.setObjectName(obj_name)
-            btn_toggle.setFixedSize(100, 30)
-            btn_toggle.clicked.connect(
-                lambda _, uid=user.kullanici_id, a=user.aktif: self._toggle(uid, a)
+            obj_name = "btn_table_danger" if user.aktif else "btn_table_success"
+            btn_toggle = _make_table_action_button(
+                lbl_toggle,
+                obj_name,
+                112,
+                lambda _, uid=user.kullanici_id, a=user.aktif: self._toggle(uid, a),
             )
-            btn_l.addWidget(btn_toggle)
 
-            btn_stat = QPushButton("Istatistik")
-            btn_stat.setObjectName("btn_secondary")
-            btn_stat.setFixedSize(112, 30)
-            btn_stat.clicked.connect(
+            btn_stat = _make_table_action_button(
+                "Istatistik",
+                "btn_table_secondary",
+                112,
                 lambda _, uid=user.kullanici_id,
-                       nm=f"{user.ad} {user.soyad}": self._show_stats(uid, nm)
+                       nm=f"{user.ad} {user.soyad}": self._show_stats(uid, nm),
             )
-            btn_l.addWidget(btn_stat)
 
-            btn_l.addStretch()
-            self._table.setCellWidget(row, 6, btn_w)
-            self._table.setRowHeight(row, 46)
+            self._table.setRowHeight(row, 54)
+            self._table.setCellWidget(row, 6, _make_table_action_cell(
+                btn_toggle, btn_stat
+            ))
 
     def _toggle(self, uid: int, currently_active: bool):
         action = "pasif" if currently_active else "aktif"

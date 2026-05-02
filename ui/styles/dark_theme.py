@@ -68,6 +68,63 @@ QPushButton#btn_danger:hover {
     color: #FFFFFF;
 }
 
+QPushButton#btn_table_secondary {
+    background-color: #2D2D2D;
+    color: #F2F2F2;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 0 12px;
+    min-width: 0px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+QPushButton#btn_table_secondary:hover {
+    background-color: #3A3A3A;
+    border-color: rgba(255, 255, 255, 0.24);
+}
+QPushButton#btn_table_secondary:pressed {
+    background-color: #222222;
+}
+
+QPushButton#btn_table_danger {
+    background-color: #7A0000;
+    color: #FFFFFF;
+    border: 1px solid #A10000;
+    border-radius: 8px;
+    padding: 0 12px;
+    min-width: 0px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+QPushButton#btn_table_danger:hover {
+    background-color: #980000;
+    border-color: #C00000;
+}
+QPushButton#btn_table_danger:pressed {
+    background-color: #5A0000;
+}
+
+QPushButton#btn_table_success {
+    background-color: #176B34;
+    color: #FFFFFF;
+    border: 1px solid #1E8C44;
+    border-radius: 8px;
+    padding: 0 12px;
+    min-width: 0px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+QPushButton#btn_table_success:hover {
+    background-color: #1E8C44;
+    border-color: #25A653;
+}
+QPushButton#btn_table_success:pressed {
+    background-color: #13592B;
+}
+
 QPushButton#btn_success {
     background-color: #1A8F3F;
     color: #FFFFFF;
@@ -131,24 +188,25 @@ QComboBox QAbstractItemView::item:hover {
 QSpinBox::up-button, QDoubleSpinBox::up-button {
     subcontrol-origin: border;
     subcontrol-position: top right;
-    width: 20px;
-    background-color: rgba(255, 255, 255, 0.09);
+    width: 24px;
+    background-color: rgba(255, 255, 255, 0.14);
     border: none;
-    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 1px solid rgba(255, 255, 255, 0.18);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
     border-top-right-radius: 7px;
 }
 QSpinBox::down-button, QDoubleSpinBox::down-button {
     subcontrol-origin: border;
     subcontrol-position: bottom right;
-    width: 20px;
-    background-color: rgba(255, 255, 255, 0.09);
+    width: 24px;
+    background-color: rgba(255, 255, 255, 0.14);
     border: none;
-    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 1px solid rgba(255, 255, 255, 0.18);
     border-bottom-right-radius: 7px;
 }
 QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
 QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
-    background-color: rgba(255, 255, 255, 0.22);
+    background-color: rgba(255, 255, 255, 0.24);
 }
 QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed,
 QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {
@@ -500,11 +558,17 @@ QScrollArea > QWidget > QWidget {
 def get_arrow_style(assets_dir: str) -> str:
     """Spinbox ok gorsellerini QSS'e URL olarak ekler."""
     import os
-    up   = os.path.join(assets_dir, "arrow_up.png").replace("\\", "/")
-    down = os.path.join(assets_dir, "arrow_down.png").replace("\\", "/")
+    from PyQt6.QtCore import QUrl
+
+    up = QUrl.fromLocalFile(
+        os.path.join(assets_dir, "arrow_up.png")
+    ).toString()
+    down = QUrl.fromLocalFile(
+        os.path.join(assets_dir, "arrow_down.png")
+    ).toString()
     return (
         f"QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{"
-        f" image: url({up}); width: 9px; height: 6px; }}\n"
+        f" image: url(\"{up}\"); width: 10px; height: 7px; }}\n"
         f"QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{"
-        f" image: url({down}); width: 9px; height: 6px; }}\n"
+        f" image: url(\"{down}\"); width: 10px; height: 7px; }}\n"
     )

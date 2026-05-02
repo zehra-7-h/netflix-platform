@@ -1,15 +1,47 @@
-import pyodbc
+try:
+    import pyodbc
+except ModuleNotFoundError as exc:
+    pyodbc = None
+    _PYODBC_IMPORT_ERROR = exc
+else:
+    _PYODBC_IMPORT_ERROR = None
+
 from config.settings import DB_CONFIG
+
+
+def _iter_connection_strings(database_name: str):
+    """Yield compatible connection strings for the installed SQL drivers."""
+    preferred_drivers = [
+        DB_CONFIG.get("driver"),
+        "ODBC Driver 18 for SQL Server",
+        "ODBC Driver 17 for SQL Server",
+        "SQL Server",
+    ]
+    seen = set()
+
+    for driver in preferred_drivers:
+        if not driver or driver in seen:
+            continue
+        seen.add(driver)
+
+        parts = [
+            f"DRIVER={{{driver}}}",
+            f"SERVER={DB_CONFIG['server']}",
+            f"DATABASE={database_name}",
+            f"Trusted_Connection={DB_CONFIG.get('trusted_connection', 'yes')}",
+        ]
+
+        # Newer ODBC drivers support explicit encryption settings.
+        if "ODBC Driver" in driver:
+            parts.extend(["Encrypt=no", "TrustServerCertificate=yes"])
+
+        yield driver, ";".join(parts) + ";"
 
 
 class DatabaseConnection:
     """
-    Singleton veritabanı bağlantı yöneticisi.
-    Uygulama boyunca tek bir bağlantı nesnesi kullanılır.
-
-    Singleton neden? Her ekran ayrı bağlantı açmasın diye.
-    Sunumda sorulursa: "Tasarım deseni kullandık, tekrar eden
-    bağlantıların önüne geçtik" diyebilirsin.
+    Singleton veritabani baglanti yoneticisi.
+    Uygulama boyunca tek bir baglanti nesnesi kullanilir.
     """
 
     _instance = None
@@ -26,33 +58,33 @@ class DatabaseConnection:
         return self._connection
 
     def _create_connection(self):
-        try:
-            # Önce modern sürücüyü dene, yoksa eski sürücüye geç
-            drivers_to_try = [
-                "ODBC Driver 17 for SQL Server",
-                "ODBC Driver 18 for SQL Server",
-                "SQL Server",
-            ]
-            last_error = None
-            for driver in drivers_to_try:
-                try:
-                    conn_str = (
-                        f"DRIVER={{{driver}}};"
-                        f"SERVER={DB_CONFIG['server']};"
-                        f"DATABASE={DB_CONFIG['database']};"
-                        f"Trusted_Connection=yes;"
-                        f"TrustServerCertificate=yes;"
-                    )
-                    conn = pyodbc.connect(conn_str, autocommit=False)
-                    print(f"[DB] Bağlantı başarılı ({driver})")
-                    return conn
-                except pyodbc.Error as e:
-                    last_error = e
-                    continue
-            raise last_error
-        except pyodbc.Error as e:
-            print(f"[DB HATA] Bağlantı kurulamadı: {e}")
-            raise
+        if pyodbc is None:
+            raise RuntimeError(
+                "pyodbc kurulu degil. Veritabani baglantisi icin `pip install pyodbc` calistirin."
+            ) from _PYODBC_IMPORT_ERROR
+
+        errors = []
+
+        for driver, conn_str in _iter_connection_strings(DB_CONFIG["database"]):
+            try:
+                conn = pyodbc.connect(conn_str, autocommit=False)
+                print(f"[DB] Baglanti basarili ({driver})")
+                return conn
+            except pyodbc.Error as exc:
+                errors.append(f"{driver}: {exc}")
+
+        joined_errors = "\n".join(errors)
+        if "Cannot open database" in joined_errors:
+            message = (
+                f"Veritabani '{DB_CONFIG['database']}' bulunamadi. "
+                "Once `py -3.12 database/setup.py` komutunu calistirin.\n\n"
+                f"Ayrinti:\n{joined_errors}"
+            )
+        else:
+            message = f"Baglanti kurulamadi.\n{joined_errors}"
+
+        print(f"[DB HATA] {message}")
+        raise RuntimeError(message)
 
     def _is_closed(self):
         try:
@@ -62,7 +94,7 @@ class DatabaseConnection:
             return True
 
     def execute(self, query: str, params: tuple = ()):
-        """SELECT dışı sorgular için (INSERT, UPDATE, DELETE)."""
+        """SELECT disi sorgular icin (INSERT, UPDATE, DELETE)."""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(query, params)
@@ -70,7 +102,7 @@ class DatabaseConnection:
         return cursor
 
     def insert_and_get_id(self, query: str, params: tuple = ()):
-        """INSERT + OUTPUT INSERTED sorgularında ID'yi commit öncesi okur."""
+        """INSERT + OUTPUT INSERTED sorgularinda ID'yi commit oncesi okur."""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(query, params)
@@ -79,14 +111,14 @@ class DatabaseConnection:
         return row[0] if row else None
 
     def fetchall(self, query: str, params: tuple = ()):
-        """SELECT sorguları için — tüm satırları döndürür."""
+        """SELECT sorgulari icin tum satirlari dondurur."""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(query, params)
         return cursor.fetchall()
 
     def fetchone(self, query: str, params: tuple = ()):
-        """SELECT sorguları için — tek satır döndürür."""
+        """SELECT sorgulari icin tek satir dondurur."""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(query, params)
@@ -96,8 +128,7 @@ class DatabaseConnection:
         if self._connection:
             self._connection.close()
             self._connection = None
-            print("[DB] Bağlantı kapatıldı.")
+            print("[DB] Baglanti kapatildi.")
 
 
-# Modül içinden kolayca erişim için tek örnek
 db = DatabaseConnection()

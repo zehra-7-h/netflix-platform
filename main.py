@@ -17,16 +17,16 @@ def _create_arrow_assets() -> str:
     os.makedirs(assets, exist_ok=True)
 
     arrows = {
-        "arrow_up.png":   [(1, 6), (5, 1), (9, 6)],
-        "arrow_down.png": [(1, 1), (5, 6), (9, 1)],
+        "arrow_up.png":   [(2, 8), (7, 2), (12, 8)],
+        "arrow_down.png": [(2, 2), (7, 8), (12, 2)],
     }
     for filename, pts in arrows.items():
         path = os.path.join(assets, filename)
-        pix = QPixmap(10, 7)
+        pix = QPixmap(14, 10)
         pix.fill(QColor(0, 0, 0, 0))
         painter = QPainter(pix)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        c = QColor("#CCCCCC")
+        c = QColor("#F2F2F2")
         painter.setPen(c)
         painter.setBrush(c)
         painter.drawPolygon(QPolygonF([QPointF(x, y) for x, y in pts]))

@@ -3,6 +3,10 @@
 -- Programlama Lab 2 - Proje 2
 -- ============================================================
 
+IF DB_ID('netflix_db') IS NULL
+    CREATE DATABASE netflix_db;
+GO
+
 USE netflix_db;
 GO
 
